@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "An affiliate product item",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array" },
+        "basePrice": { "type": "number" },
+        "offerPrice": { "type": "number" },
+        "imageUrls": { "type": "array" },
+        "videoUrls": { "type": "array" },
+        "affiliateLink": { "type": "string" },
+        "rating": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "draft", "out_of_stock"] },
+        "isFeatured": { "type": "boolean" },
+        "isTrending": { "type": "boolean" },
+        "bestSeller": { "type": "boolean" },
+        "limitedTime": { "type": "boolean" },
+        "whyThisProduct": { "type": "string" },
+        "comparisonInfo": { "type": "object" },
+        "clicks": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "affiliateLink", "basePrice", "status"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Promotional banner for home page hero/slider",
+      "type": "object",
+      "properties": {
+        "imageUrl": { "type": "string" },
+        "link": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" }
+      },
+      "required": ["imageUrl", "isActive"]
+    },
+    "AnalyticSummary": {
+      "title": "AnalyticSummary",
+      "description": "Daily/Monthly aggregate stats",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "visits": { "type": "number" },
+        "uniqueVisitors": { "type": "number" },
+        "totalClicks": { "type": "number" }
+      }
+    },
+    "Click": {
+      "title": "Click",
+      "description": "Individual click event on affiliate link",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userAgent": { "type": "string" },
+        "referer": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "products": {
+      "schema": "Product",
+      "description": "Main product collection"
+    },
+    "banners": {
+      "schema": "Banner",
+      "description": "Hero slider banners"
+    },
+    "analytics": {
+      "schema": "AnalyticSummary",
+      "description": "Aggregate daily statistics"
+    },
+    "clicks": {
+      "schema": "Click",
+      "description": "Raw click logs for auditing"
+    },
+    "config": {
+      "schema": "object",
+      "description": "Global application config (popups, global banners)"
+    }
+  }
+}

@@ -1,0 +1,121 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // -- HELPERS --
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      // For this app, we'll bootstrap the first user or use a specific email
+      // Ideally, check an 'admins' collection
+      return isEmailVerified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // -- VALIDATION HELPERS --
+
+    function isValidProduct(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 200
+          && data.affiliateLink is string && data.affiliateLink.size() > 0 && data.affiliateLink.size() <= 2048
+          && data.basePrice is number && data.basePrice >= 0
+          && (data.offerPrice == null || (data.offerPrice is number && data.offerPrice >= 0))
+          && data.status in ['active', 'draft', 'out_of_stock']
+          && data.imageUrls is list && data.imageUrls.size() <= 10
+          && (data.imageUrls.size() == 0 || data.imageUrls[0] is string)
+          && data.videoUrls is list && data.videoUrls.size() <= 5
+          && (data.videoUrls.size() == 0 || data.videoUrls[0] is string);
+    }
+
+    function isValidBanner(data) {
+      return data.imageUrl is string && data.imageUrl.size() <= 2048
+          && data.isActive is bool
+          && data.order is number;
+    }
+
+    function isValidClick(data) {
+      return data.productId is string && data.productId.size() <= 128
+          && data.timestamp == request.time;
+    }
+
+    // -- RULES --
+
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Admins Collection
+    match /admins/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false; // Only manageable via console or specialized script
+    }
+
+    // Products
+    match /products/{productId} {
+      allow get: if true; // Public can see single product
+      allow list: if existing().status == 'active' || isAdmin();
+      
+      allow create: if isAdmin() && isValidProduct(incoming())
+                    && incoming().createdAt == request.time
+                    && incoming().updatedAt == request.time;
+      
+      allow update: if (
+        isAdmin() && isValidProduct(incoming()) && (
+          // Admin can update anything, but we keep metadata sane
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time
+        )
+      ) || (
+        // Public can increment clicks
+        isSignedIn() && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['clicks']) &&
+        incoming().clicks == existing().clicks + 1
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // Banners
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidBanner(incoming());
+    }
+
+    // Analytics (Daily aggregate)
+    match /analytics/{date} {
+      allow read: if isAdmin();
+      allow write: if isAdmin(); // Usually updated via background function or admin panel
+    }
+
+    // Clicks (Raw logs)
+    match /clicks/{clickId} {
+      allow read: if isAdmin();
+      allow create: if isValidClick(incoming()); // Public can log a click
+    }
+
+    // Config
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
